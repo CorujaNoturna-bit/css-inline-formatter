@@ -146,7 +146,7 @@ class Reader {
 
   parseItems(depth) {
     const items = [];
-    for (;;) {
+    for (; ;) {
       const text = this.readUntilDelimiter();
       const d = this.s[this.i];
 
@@ -271,12 +271,6 @@ function squash(css) {
     .replace(/;$/, '');
 }
 
-/**
- * Minifica e confere duas coisas antes de devolver o resultado:
- *  1) o conteúdo é equivalente ao original (só a formatação mudou);
- *  2) rodar de novo não muda nada (idempotente).
- * Se algo falhar, devolve { ok: false } e o arquivo não deve ser alterado.
- */
 function safeMinify(src) {
   try {
     const output = minifyCSS(src);
@@ -292,4 +286,31 @@ function safeMinify(src) {
   }
 }
 
-module.exports = { minifyCSS, squash, safeMinify };
+
+
+function minifyEmbeddedStyles(html) {
+  const STYLE_REGEX = /(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi;
+  let hasErrors = false;
+  let firstError = '';
+
+  const output = html.replace(STYLE_REGEX, (match, openTag, cssContent, closeTag) => {
+    // Se o estilo estiver em branco, mantém
+    if (!cssContent.trim()) return match;
+
+    const res = safeMinify(cssContent);
+    if (!res.ok) {
+      hasErrors = true;
+      firstError = res.error;
+      return match;
+    }
+
+    return `${openTag}\n${res.output.trim()}\n${closeTag}`;
+  });
+
+  if (hasErrors) {
+    return { ok: false, error: firstError };
+  }
+  return { ok: true, output };
+}
+
+module.exports = { minifyCSS, squash, safeMinify, minifyEmbeddedStyles };

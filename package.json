@@ -27,7 +27,7 @@
       "editor/context": [
         {
           "command": "cssInline.formatFile",
-          "when": "resourceLangId == css",
+          "when": "resourceLangId == css || resourceLangId == html",
           "group": "1_modification"
         }
       ]

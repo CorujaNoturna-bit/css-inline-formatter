@@ -1,18 +1,27 @@
 'use strict';
 
 const vscode = require('vscode');
-const { safeMinify } = require('./minify');
+const { safeMinify, minifyEmbeddedStyles } = require('./minify');
+
+function processContent(text, languageId) {
+  if (languageId === 'html') {
+    return minifyEmbeddedStyles(text);
+  }
+  return safeMinify(text);
+}
 
 async function formatCurrentFile() {
   const editor = vscode.window.activeTextEditor;
-  if (!editor || editor.document.languageId !== 'css') {
-    vscode.window.showWarningMessage('Abra um arquivo .css para usar este comando.');
+  const validLangs = ['css', 'html'];
+  
+  if (!editor || !validLangs.includes(editor.document.languageId)) {
+    vscode.window.showWarningMessage('Abra um arquivo .css ou .html para usar este comando.');
     return;
   }
 
   const doc = editor.document;
   const text = doc.getText();
-  const result = safeMinify(text);
+  const result = processContent(text, doc.languageId);
 
   if (!result.ok) {
     vscode.window.showErrorMessage(`CSS Inline: ${result.error}`);
@@ -24,7 +33,7 @@ async function formatCurrentFile() {
   }
 
   const fullRange = new vscode.Range(doc.positionAt(0), doc.positionAt(text.length));
-  await editor.edit((eb) => eb.replace(fullRange, result.output)); // desfazível com Ctrl+Z
+  await editor.edit((eb) => eb.replace(fullRange, result.output));
 }
 
 async function formatProject(output) {
@@ -34,15 +43,16 @@ async function formatProject(output) {
   }
 
   const exclude = vscode.workspace.getConfiguration('cssInline').get('exclude');
-  const files = await vscode.workspace.findFiles('**/*.css', exclude);
+  // Busca tanto arquivos .css quanto .html
+  const files = await vscode.workspace.findFiles('**/*.{css,html}', exclude);
 
   if (files.length === 0) {
-    vscode.window.showInformationMessage('CSS Inline: nenhum arquivo .css encontrado.');
+    vscode.window.showInformationMessage('CSS Inline: nenhum arquivo .css ou .html encontrado.');
     return;
   }
 
   const choice = await vscode.window.showWarningMessage(
-    `Isto vai reescrever até ${files.length} arquivo(s) .css e remover todos os comentários. ` +
+    `Isto vai reescrever até ${files.length} arquivo(s) (.css e .html) e remover comentários de CSS. ` +
       'Faça um commit (ou backup) antes de continuar.',
     { modal: true },
     'Continuar'
@@ -65,7 +75,6 @@ async function formatProject(output) {
         const rel = vscode.workspace.asRelativePath(uri);
         progress.report({ message: rel, increment: 100 / files.length });
 
-        // Não sobrescreve arquivos abertos com alterações não salvas
         const isDirty = vscode.workspace.textDocuments.some((d) => d.uri.toString() === uri.toString() && d.isDirty);
         if (isDirty) {
           stats.dirty.push(rel);
@@ -74,7 +83,9 @@ async function formatProject(output) {
 
         try {
           const text = decoder.decode(await vscode.workspace.fs.readFile(uri));
-          const result = safeMinify(text);
+          const isHtml = uri.path.endsWith('.html');
+          const result = isHtml ? minifyEmbeddedStyles(text) : safeMinify(text);
+
           if (!result.ok) {
             stats.failed.push(`${rel}: ${result.error}`);
             continue;
