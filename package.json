@@ -1,0 +1,49 @@
+{
+  "name": "css-inline-formatter",
+  "displayName": "CSS Inline Formatter",
+  "description": "Coloca cada regra CSS (seletor + propriedades) em uma única linha e remove comentários, no arquivo atual ou no projeto inteiro.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Formatters"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cssInline.formatFile",
+        "title": "CSS Inline: Formatar arquivo atual"
+      },
+      {
+        "command": "cssInline.formatProject",
+        "title": "CSS Inline: Formatar projeto inteiro"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cssInline.formatFile",
+          "when": "resourceLangId == css",
+          "group": "1_modification"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CSS Inline Formatter",
+      "properties": {
+        "cssInline.exclude": {
+          "type": "string",
+          "default": "{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/out/**,**/vendor/**,**/*.min.css}",
+          "description": "Padrão glob de arquivos/pastas ignorados ao formatar o projeto inteiro."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node test.js"
+  }
+}
